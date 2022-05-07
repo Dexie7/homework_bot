@@ -101,6 +101,7 @@ def parse_status(homework):
         return VERDICT.format(name, HOMEWORK_STATUSES[status])
     raise ValueError(STATUS_FAIL.format(status))
 
+
 def check_tokens():
     """Проверка токенов."""
     lost_tokens = [token for token in TOKENS if globals()[token] is None]
