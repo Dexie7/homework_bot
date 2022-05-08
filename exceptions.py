@@ -1,10 +1,5 @@
-class ResponseError:
+class WrongStatus(Exception):
     pass
 
-
-class SendMessageError:
-    pass
-
-
-class AnswerError:
+class JsonError(Exception):
     pass
