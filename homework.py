@@ -18,10 +18,9 @@ TOKENS = {
     'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
     'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID
 }
-MSG_FAIL = 'Сообщение {0} не отправлено: {1}.'
+MESSAGE_FAIL = 'Сообщение {0} не отправлено: {1}.'
 RESPONSE_KEY_FAIL = 'Ключ homeworks не найден!'
 RESPONSE_TYPE_FAIL = 'Неправильный тип для homeworks. Тип - {0}'
-EMPTY_LIST = 'Список работ пуст.'
 RETRY_TIME = 600
 TIMEOUT = 10
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
@@ -35,9 +34,9 @@ HOMEWORK_STATUSES = {
     'reviewing': 'Работа взята на проверку ревьюером.',
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
-JSON_ERROR = 'Отказ от обслуживания. {0}, {1}, {2}, {3}, {4}'
+RESPONSE_ERROR = 'Отказ от обслуживания. {0}, {1}, {2}, {3}, {4}'
 PROGRAMM_ERROR = 'Сбой в работе программы: {0}'
-CHECK_TOKENS_ERROR = 'Запуск программы невозможен.'
+CHECK_TOKENS_ERROR = 'Запуск программы невозможен. Произошла ошибка токенов'
 VERDICT = 'Изменился статус проверки работы "{0}"-{1}'
 
 logging.basicConfig(
@@ -55,7 +54,7 @@ def send_message(bot, message):
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.info(SUCCESSFUL_MSG_SENDING.format(message=message))
     except telegram.TelegramError as error:
-        logger.exception(MSG_FAIL.format(message, error))
+        logger.exception(MESSAGE_FAIL.format(message, error))
 
 
 def get_api_answer(current_timestamp):
@@ -66,19 +65,17 @@ def get_api_answer(current_timestamp):
                                 headers=HEADERS,
                                 params=params,
                                 timeout=TIMEOUT)
-    except requests.RequestException as e:
+    except requests.RequestException as error:
         raise ConnectionError(SERVER_ERROR.format(
-            e, ENDPOINT, HEADERS, params, TIMEOUT))
+            error, ENDPOINT, HEADERS, params, TIMEOUT))
     if response.status_code != requests.codes.ok:
         raise WrongStatus(SERVER_ERROR.format(
             response.status_code, ENDPOINT, HEADERS, params, TIMEOUT))
     answer = response.json()
-    if 'code' in answer:
-        raise JsonError(JSON_ERROR.format(
-            answer['code'], ENDPOINT, HEADERS, params, TIMEOUT))
-    if 'error' in answer:
-        raise JsonError(JSON_ERROR.format(
-            answer['error'], ENDPOINT, HEADERS, params, TIMEOUT))
+    for error in ['code', 'error']:
+        if error in answer:
+            raise JsonError(RESPONSE_ERROR.format(
+                answer[error], ENDPOINT, HEADERS, params, TIMEOUT))
     return answer
 
 
@@ -86,12 +83,12 @@ def check_response(response):
     """Проверка ответа API."""
     try:
         homeworks = response['homeworks']
+        if homeworks == []:
+            return {}
     except KeyError:
         raise KeyError(RESPONSE_KEY_FAIL)
     if not isinstance(homeworks, list):
         raise TypeError(RESPONSE_TYPE_FAIL.format(type(homeworks)))
-    if not homeworks:
-        logger.info(EMPTY_LIST)
     return homeworks
 
 
