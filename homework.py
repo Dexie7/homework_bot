@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from http import HTTPStatus
 
 import requests
 import telegram
@@ -13,10 +14,10 @@ load_dotenv()
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-TOKENS = {
-    'PRACTICUM_TOKEN': PRACTICUM_TOKEN,
-    'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
-    'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID
+TOKENS = { 
+    'PRACTICUM_TOKEN': PRACTICUM_TOKEN, 
+    'TELEGRAM_TOKEN': TELEGRAM_TOKEN, 
+    'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID 
 }
 MESSAGE_FAIL = 'Сообщение {0} не отправлено: {1}.'
 RESPONSE_KEY_FAIL = 'Ключ homeworks не найден!'
@@ -26,8 +27,9 @@ TIMEOUT = 10
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 SERVER_ERROR = 'Ошибка сервера. {0}, URL{1},Headers{2}, Params{3}, Timeout{4}'
-SUCCESSFUL_MSG_SENDING = 'Сообщение {message} успешно отправлено.'
+SUCCESSFUL_MESSAGE_SENDING = 'Сообщение {message} успешно отправлено.'
 STATUS_FAIL = 'Статус {0} не найден.'
+MESSAGE = 'Ответ не является словарем!'
 MISSING_TOKEN = 'Нет токенов: {0}.'
 HOMEWORK_STATUSES = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -52,7 +54,7 @@ def send_message(bot, message):
     """Отправка сообщения."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
-        logger.info(SUCCESSFUL_MSG_SENDING.format(message=message))
+        logger.info(SUCCESSFUL_MESSAGE_SENDING.format(message=message))
     except telegram.TelegramError as error:
         logger.exception(MESSAGE_FAIL.format(message, error))
 
@@ -68,7 +70,7 @@ def get_api_answer(current_timestamp):
     except requests.RequestException as error:
         raise ConnectionError(SERVER_ERROR.format(
             error, ENDPOINT, HEADERS, params, TIMEOUT))
-    if response.status_code != requests.codes.ok:
+    if response.status_code != HTTPStatus.OK:
         raise WrongStatus(SERVER_ERROR.format(
             response.status_code, ENDPOINT, HEADERS, params, TIMEOUT))
     answer = response.json()
@@ -81,10 +83,10 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Проверка ответа API."""
+    if not isinstance(response, dict):
+        raise TypeError(MESSAGE.format(response))
     try:
         homeworks = response['homeworks']
-        if homeworks == []:
-            return {}
     except KeyError:
         raise KeyError(RESPONSE_KEY_FAIL)
     if not isinstance(homeworks, list):
@@ -125,7 +127,6 @@ def main():
             current_timestamp = response.get(
                 'current_date', current_timestamp)
         except Exception as error:
-            logger.error(PROGRAMM_ERROR.format(error))
             send_message(bot, PROGRAMM_ERROR.format(error))
         time.sleep(RETRY_TIME)
 
